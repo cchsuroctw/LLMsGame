@@ -3,16 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>魔術方塊 3×3（2D 展開圖）</title>
+  <title>打磚塊 Breakout（HTML/CSS/JS）</title>
   <style>
     :root{
-      --size: 36px;        /* 單格大小 */
-      --gap: 4px;          /* 格子間距 */
-      --border: 2px;       /* 格子外框 */
-      --bg: #0f1220;
-      --panel: #171a2b;
-      --text: #e8ecff;
-      --muted: #aab2d5;
+      --bg: #0b1020;
+      --panel: rgba(255,255,255,.06);
+      --panel2: rgba(255,255,255,.10);
+      --text: #eaf0ff;
+      --muted: rgba(234,240,255,.75);
       --accent: #6ee7ff;
       --danger: #ff6b6b;
       --ok: #48ff95;
@@ -20,110 +18,116 @@
     *{ box-sizing: border-box; }
     body{
       margin:0;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans TC", sans-serif;
-      background: radial-gradient(1200px 800px at 10% 0%, #202553, var(--bg));
-      color: var(--text);
-      display:flex;
       min-height:100vh;
+      display:flex;
       align-items:center;
       justify-content:center;
-      padding: 24px;
+      padding: 18px;
+      background: radial-gradient(1000px 700px at 15% 0%, #1a2560 0%, var(--bg) 55%);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans TC", sans-serif;
+      color: var(--text);
     }
-    .app{
+    .wrap{
       width: min(1100px, 100%);
       display:grid;
       grid-template-columns: 1fr 320px;
-      gap: 16px;
-    }
-    @media (max-width: 900px){
-      .app{ grid-template-columns: 1fr; }
-    }
-    .board{
-      background: rgba(255,255,255,0.03);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 16px;
-      padding: 18px;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.35);
-      overflow:auto;
-    }
-    .side{
-      background: rgba(255,255,255,0.03);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 16px;
-      padding: 18px;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.35);
-      display:flex;
-      flex-direction:column;
       gap: 14px;
     }
+    @media (max-width: 900px){
+      .wrap{ grid-template-columns: 1fr; }
+    }
 
+    .stage{
+      position: relative;
+      border-radius: 16px;
+      overflow:hidden;
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+      border: 1px solid rgba(255,255,255,.10);
+      box-shadow: 0 14px 34px rgba(0,0,0,.35);
+    }
+    canvas{
+      display:block;
+      width: 100%;
+      height: auto;
+      background:
+        radial-gradient(800px 500px at 50% 15%, rgba(110,231,255,.12), transparent 60%),
+        radial-gradient(700px 450px at 20% 60%, rgba(72,255,149,.10), transparent 55%),
+        #070b16;
+    }
+    .hudOverlay{
+      position:absolute;
+      inset: 0;
+      pointer-events:none;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding: 18px;
+    }
+    .message{
+      max-width: 520px;
+      text-align:center;
+      background: rgba(0,0,0,.45);
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: 16px;
+      padding: 16px 18px;
+      backdrop-filter: blur(6px);
+      box-shadow: 0 10px 25px rgba(0,0,0,.35);
+      display:none;
+    }
+    .message.show{ display:block; }
+    .message h2{
+      margin: 0 0 8px;
+      font-size: 20px;
+      letter-spacing: .4px;
+    }
+    .message p{
+      margin: 8px 0 0;
+      color: var(--muted);
+      line-height: 1.6;
+      font-size: 13px;
+    }
+
+    .side{
+      background: rgba(255,255,255,.05);
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 14px 34px rgba(0,0,0,.35);
+      display:flex;
+      flex-direction:column;
+      gap: 12px;
+    }
     .title{
       display:flex;
       align-items:flex-end;
       justify-content:space-between;
       gap: 10px;
-      margin-bottom: 12px;
     }
     .title h1{
       margin:0;
-      font-size: 20px;
-      letter-spacing: .5px;
+      font-size: 18px;
+      letter-spacing: .4px;
     }
-    .title .hint{
-      color: var(--muted);
+    .title .sub{
       font-size: 12px;
-      line-height: 1.2;
+      color: var(--muted);
       text-align:right;
+      line-height:1.3;
     }
 
-    /* 2D 展開圖布局：     [   U   ]
-                          [L  F  R  B]
-                          [   D   ] */
-    .net{
+    .stats{
       display:grid;
-      grid-template-columns: repeat(4, calc(3*var(--size) + 2*var(--gap)));
-      grid-template-rows: repeat(3, calc(3*var(--size) + 2*var(--gap)));
-      gap: 12px;
-      align-items:start;
-      justify-content:start;
-      padding: 10px 2px;
-      min-width: 520px; /* 小螢幕可水平捲動 */
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
     }
-    .face{
-      display:grid;
-      grid-template-columns: repeat(3, var(--size));
-      grid-template-rows: repeat(3, var(--size));
-      gap: var(--gap);
-      padding: 10px;
+    .card{
+      background: rgba(0,0,0,.28);
+      border: 1px solid rgba(255,255,255,.10);
       border-radius: 14px;
-      background: rgba(0,0,0,0.25);
-      border: 1px solid rgba(255,255,255,0.06);
-      position:relative;
-      user-select:none;
+      padding: 12px;
     }
-    .face::before{
-      content: attr(data-name);
-      position:absolute;
-      top: 10px;
-      left: 12px;
-      font-size: 12px;
-      color: var(--muted);
-    }
-    .sticker{
-      width: var(--size);
-      height: var(--size);
-      border-radius: 8px;
-      border: var(--border) solid rgba(0,0,0,0.35);
-      box-shadow: inset 0 2px 0 rgba(255,255,255,0.12);
-    }
-
-    /* 面的位置 */
-    .U{ grid-column: 2; grid-row: 1; }
-    .L{ grid-column: 1; grid-row: 2; }
-    .F{ grid-column: 2; grid-row: 2; }
-    .R{ grid-column: 3; grid-row: 2; }
-    .B{ grid-column: 4; grid-row: 2; }
-    .D{ grid-column: 2; grid-row: 3; }
+    .card .label{ font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+    .card .value{ font-size: 18px; font-weight: 800; letter-spacing:.4px; }
 
     .controls{
       display:flex;
@@ -132,156 +136,647 @@
     }
     button{
       appearance:none;
-      border: 1px solid rgba(255,255,255,0.10);
-      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.08);
       color: var(--text);
       padding: 10px 12px;
       border-radius: 12px;
       cursor:pointer;
       transition: transform .05s ease, background .2s ease, border-color .2s ease;
-      font-weight: 600;
+      font-weight: 700;
       letter-spacing: .2px;
     }
     button:hover{
-      background: rgba(255,255,255,0.10);
-      border-color: rgba(255,255,255,0.18);
+      background: rgba(255,255,255,.12);
+      border-color: rgba(255,255,255,.20);
     }
     button:active{ transform: translateY(1px); }
-    .primary{ border-color: rgba(110,231,255,0.35); }
-    .danger{ border-color: rgba(255,107,107,0.35); }
-    .small{ padding: 8px 10px; font-weight: 600; font-size: 13px;}
-    .row{ display:flex; gap: 8px; flex-wrap:wrap; }
+    .primary{ border-color: rgba(110,231,255,.35); }
+    .danger{ border-color: rgba(255,107,107,.35); }
 
-    .stats{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-    }
-    .card{
-      background: rgba(0,0,0,0.22);
-      border: 1px solid rgba(255,255,255,0.06);
+    .help{
+      background: rgba(0,0,0,.22);
+      border: 1px dashed rgba(255,255,255,.16);
       border-radius: 14px;
       padding: 12px;
-    }
-    .card .label{
-      font-size: 12px;
-      color: var(--muted);
-      margin-bottom: 6px;
-    }
-    .card .value{
-      font-size: 18px;
-      font-weight: 800;
-      letter-spacing: .4px;
-    }
-
-    .status{
-      padding: 12px;
-      border-radius: 14px;
-      border: 1px dashed rgba(255,255,255,0.18);
-      background: rgba(0,0,0,0.18);
-      color: var(--muted);
-      line-height: 1.55;
       font-size: 13px;
+      color: var(--muted);
+      line-height: 1.6;
     }
-    .status strong{ color: var(--text); }
-
     .kbd{
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      background: rgba(255,255,255,0.08);
-      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,.08);
+      border: 1px solid rgba(255,255,255,.14);
       padding: 2px 6px;
       border-radius: 8px;
       color: var(--accent);
-      font-weight: 700;
-    }
-
-    .solved{
-      border-color: rgba(72,255,149,0.35) !important;
-      background: rgba(72,255,149,0.08) !important;
-      color: #caffde !important;
+      font-weight: 800;
     }
   </style>
 </head>
 <body>
-  <div class="app">
-    <div class="board">
-      <div class="title">
-        <h1>魔術方塊 3×3（2D 展開圖）</h1>
-        <div class="hint">
-          鍵盤：<span class="kbd">U D L R F B</span> 轉面，<span class="kbd">Shift</span> + 字母 = 逆轉（例如 U'）<br/>
-          <span style="opacity:.75;">例：按住 Shift 再按 U → U'</span>
+  <div class="wrap">
+    <div class="stage">
+      <canvas id="game" width="960" height="600"></canvas>
+      <div class="hudOverlay">
+        <div id="msg" class="message show">
+          <h2>🎮 打磚塊 Breakout</h2>
+          <p>
+            按 <span class="kbd">Space</span> 開始 / 發球，<span class="kbd">P</span> 暫停，<span class="kbd">R</span> 重新開始<br/>
+            移動：<span class="kbd">← →</span> 或 <span class="kbd">A D</span>，也支援滑鼠/觸控拖曳
+          </p>
         </div>
-      </div>
-
-      <div id="net" class="net">
-        <div class="face U" data-name="U(上)"></div>
-        <div class="face L" data-name="L(左)"></div>
-        <div class="face F" data-name="F(前)"></div>
-        <div class="face R" data-name="R(右)"></div>
-        <div class="face B" data-name="B(後)"></div>
-        <div class="face D" data-name="D(下)"></div>
       </div>
     </div>
 
     <div class="side">
+      <div class="title">
+        <h1>Breakout</h1>
+        <div class="sub">
+          HTML + CSS + JavaScript<br/>
+          Canvas 版（單檔）
+        </div>
+      </div>
+
       <div class="stats">
         <div class="card">
-          <div class="label">步數</div>
-          <div id="moves" class="value">0</div>
+          <div class="label">分數</div>
+          <div id="score" class="value">0</div>
         </div>
         <div class="card">
-          <div class="label">計時</div>
-          <div id="time" class="value">00:00</div>
+          <div class="label">生命</div>
+          <div id="lives" class="value">3</div>
+        </div>
+        <div class="card">
+          <div class="label">關卡</div>
+          <div id="level" class="value">1</div>
+        </div>
+        <div class="card">
+          <div class="label">狀態</div>
+          <div id="state" class="value">待開始</div>
         </div>
       </div>
 
-      <div class="row">
-        <button class="primary" id="shuffleBtn">Shuffle 打亂</button>
-        <button id="resetBtn" class="danger">Reset 重置</button>
+      <div class="controls">
+        <button class="primary" id="startBtn">開始 / 發球 (Space)</button>
+        <button id="pauseBtn">暫停 (P)</button>
+        <button class="danger" id="restartBtn">重來 (R)</button>
       </div>
 
-      <div class="status" id="statusBox">
-        <strong>操作：</strong><br/>
-        - 點按按鈕或用鍵盤輸入 U/D/L/R/F/B<br/>
-        - <span class="kbd">Shift</span> + 字母表示逆時針（U'）<br/>
-        - Shuffle 會打亂並開始計時
-      </div>
-
-      <div>
-        <div style="font-weight:800;margin:6px 0 10px;">轉面按鈕</div>
-        <div class="controls">
-          <button class="small" data-move="U">U</button>
-          <button class="small" data-move="U'">U'</button>
-          <button class="small" data-move="D">D</button>
-          <button class="small" data-move="D'">D'</button>
-
-          <button class="small" data-move="L">L</button>
-          <button class="small" data-move="L'">L'</button>
-          <button class="small" data-move="R">R</button>
-          <button class="small" data-move="R'">R'</button>
-
-          <button class="small" data-move="F">F</button>
-          <button class="small" data-move="F'">F'</button>
-          <button class="small" data-move="B">B</button>
-          <button class="small" data-move="B'">B'</button>
-        </div>
+      <div class="help">
+        <strong>玩法：</strong> 反彈球打掉所有磚塊過關。<br/>
+        <strong>技巧：</strong> 球打到球拍不同位置會改變反射角度。<br/>
+        <strong>快捷鍵：</strong>
+        <span class="kbd">Space</span> 開始/發球，
+        <span class="kbd">P</span> 暫停，
+        <span class="kbd">R</span> 重來
       </div>
     </div>
   </div>
 
 <script>
 (() => {
-  // 面的索引順序固定：0..8 = row-major
-  // U D L R F B
-  const faces = ["U","D","L","R","F","B"];
+  // ===== Canvas / 基本設定 =====
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
 
-  // 顏色（可自行改）
-  const COLORS = {
-    U: "#ffffff", // 白
-    D: "#ffd500", // 黃
-    L: "#ff8c1a", // 橘
-    R: "#e53935", // 紅
-    F: "#2ecc71", // 綠
-    B: "#1e88e5"  // 藍
+  // 高 DPI 支援：避免模糊
+  function setupHiDPI(){
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    const cssW = rect.width, cssH = rect.height;
+    // 若 canvas 用 attribute 固定 960x600，這裡依比例縮放繪圖座標
+    // 直接用內建尺寸配合縮放即可
+    canvas.width = Math.floor(960 * dpr);
+    canvas.height = Math.floor(600 * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  // 這裡採固定遊戲座標 960x600，不因視窗改變遊戲難度
+  const W = 960, H = 600;
+
+  // ===== UI refs =====
+  const scoreEl = document.getElementById("score");
+  const livesEl = document.getElementById("lives");
+  const levelEl = document.getElementById("level");
+  const stateEl = document.getElementById("state");
+  const msgEl = document.getElementById("msg");
+
+  const startBtn = document.getElementById("startBtn");
+  const pauseBtn = document.getElementById("pauseBtn");
+  const restartBtn = document.getElementById("restartBtn");
+
+  // ===== 遊戲狀態 =====
+  const GameState = {
+    READY: "READY",     // 等發球
+    RUNNING: "RUNNING", // 進行中
+    PAUSED: "PAUSED",
+    WIN: "WIN",
+    LOSE: "LOSE"
   };
 
+  let state = GameState.READY;
+
+  // 物件：球拍、球、磚塊
+  const paddle = {
+    w: 140,
+    h: 16,
+    x: W/2 - 70,
+    y: H - 48,
+    speed: 720, // px/sec
+    vx: 0
+  };
+
+  const ball = {
+    r: 9,
+    x: W/2,
+    y: H - 70,
+    vx: 260,
+    vy: -360,
+    speedMul: 1.0, // 關卡加速
+    stuck: true // 發球前黏在球拍上
+  };
+
+  let score = 0;
+  let lives = 3;
+  let level = 1;
+
+  // 磚塊配置
+  const brick = {
+    rows: 6,
+    cols: 12,
+    w: 68,
+    h: 22,
+    gap: 8,
+    top: 72,
+    left: 50
+  };
+
+  let bricks = [];
+
+  // ===== 工具函數 =====
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const rand = (a, b) => a + Math.random()*(b-a);
+
+  function setState(s){
+    state = s;
+    const map = {
+      READY: "待開始",
+      RUNNING: "進行中",
+      PAUSED: "暫停",
+      WIN: "勝利",
+      LOSE: "失敗"
+    };
+    stateEl.textContent = map[s] || s;
+
+    // 顯示訊息
+    if (s === GameState.READY){
+      msgEl.classList.add("show");
+      msgEl.innerHTML = `
+        <h2>🎮 打磚塊 Breakout</h2>
+        <p>
+          按 <span class="kbd">Space</span> 開始 / 發球，<span class="kbd">P</span> 暫停，<span class="kbd">R</span> 重新開始<br/>
+          移動：<span class="kbd">← →</span> 或 <span class="kbd">A D</span>，也支援滑鼠/觸控拖曳
+        </p>`;
+    } else if (s === GameState.PAUSED){
+      msgEl.classList.add("show");
+      msgEl.innerHTML = `
+        <h2>⏸ 已暫停</h2>
+        <p>按 <span class="kbd">P</span> 繼續，或 <span class="kbd">R</span> 重來。</p>`;
+    } else if (s === GameState.WIN){
+      msgEl.classList.add("show");
+      msgEl.innerHTML = `
+        <h2 style="color: #48ff95">🏆 過關！</h2>
+        <p>按 <span class="kbd">Space</span> 進入下一關（球速會變快）。</p>`;
+    } else if (s === GameState.LOSE){
+      msgEl.classList.add("show");
+      msgEl.innerHTML = `
+        <h2 style="color:#ff6b6b">💥 遊戲結束</h2>
+        <p>分數：<strong>${score}</strong><br/>按 <span class="kbd">R</span> 重新開始。</p>`;
+    } else {
+      msgEl.classList.remove("show");
+    }
+  }
+
+  function resetBallAndPaddle(){
+    paddle.x = W/2 - paddle.w/2;
+    paddle.vx = 0;
+
+    ball.x = paddle.x + paddle.w/2;
+    ball.y = paddle.y - ball.r - 2;
+    ball.vx = rand(-240, 240);
+    ball.vy = -360;
+    ball.stuck = true;
+  }
+
+  function buildBricks(){
+    bricks = [];
+    const palette = ["#6ee7ff", "#48ff95", "#ffd166", "#ff6b6b", "#a78bfa", "#60a5fa"];
+    for (let r=0; r<brick.rows; r++){
+      for (let c=0; c<brick.cols; c++){
+        const x = brick.left + c*(brick.w + brick.gap);
+        const y = brick.top + r*(brick.h + brick.gap);
+        bricks.push({
+          x, y, w: brick.w, h: brick.h,
+          alive: true,
+          hp: 1, // 可擴充多血磚
+          color: palette[r % palette.length]
+        });
+      }
+    }
+  }
+
+  function resetGame(){
+    score = 0;
+    lives = 3;
+    level = 1;
+    ball.speedMul = 1.0;
+    buildBricks();
+    resetBallAndPaddle();
+    updateHUD();
+    setState(GameState.READY);
+  }
+
+  function nextLevel(){
+    level++;
+    ball.speedMul = 1.0 + (level-1)*0.10; // 每關加速 10%
+    // 小幅縮短球拍（增加難度，但不要太誇張）
+    paddle.w = clamp(140 - (level-1)*6, 95, 140);
+    buildBricks();
+    resetBallAndPaddle();
+    updateHUD();
+    setState(GameState.READY);
+  }
+
+  function updateHUD(){
+    scoreEl.textContent = score;
+    livesEl.textContent = lives;
+    levelEl.textContent = level;
+  }
+
+  function allBricksCleared(){
+    return bricks.every(b => !b.alive);
+  }
+
+  // ===== 碰撞檢測與反彈 =====
+  function circleRectCollision(cx, cy, r, rx, ry, rw, rh){
+    // 找到圓心到矩形最近點
+    const nx = clamp(cx, rx, rx+rw);
+    const ny = clamp(cy, ry, ry+rh);
+    const dx = cx - nx;
+    const dy = cy - ny;
+    return (dx*dx + dy*dy) <= r*r;
+  }
+
+  function reflectBallOffPaddle(){
+    // 根據打到球拍的位置決定角度（中心=直上，邊緣=斜）
+    const hit = (ball.x - (paddle.x + paddle.w/2)) / (paddle.w/2);
+    const angle = hit * (Math.PI * 0.35); // 最大約 63 度
+    const speed = Math.hypot(ball.vx, ball.vy);
+    ball.vx = speed * Math.sin(angle);
+    ball.vy = -Math.abs(speed * Math.cos(angle));
+  }
+
+  // ===== 輸入：鍵盤 / 滑鼠 / 觸控 =====
+  const keys = { left:false, right:false };
+
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowLeft" || e.key.toLowerCase() === "a") keys.left = true;
+    if (e.key === "ArrowRight" || e.key.toLowerCase() === "d") keys.right = true;
+
+    if (e.code === "Space"){
+      e.preventDefault();
+      handleStartOrLaunch();
+    }
+    if (e.key.toLowerCase() === "p"){
+      togglePause();
+    }
+    if (e.key.toLowerCase() === "r"){
+      resetGame();
+    }
+  });
+
+  window.addEventListener("keyup", (e) => {
+    if (e.key === "ArrowLeft" || e.key.toLowerCase() === "a") keys.left = false;
+    if (e.key === "ArrowRight" || e.key.toLowerCase() === "d") keys.right = false;
+  });
+
+  function canvasToGameX(clientX){
+    const rect = canvas.getBoundingClientRect();
+    const x = (clientX - rect.left) / rect.width * W;
+    return x;
+  }
+
+  function movePaddleTo(x){
+    paddle.x = clamp(x - paddle.w/2, 12, W - paddle.w - 12);
+  }
+
+  // 滑鼠
+  window.addEventListener("mousemove", (e) => {
+    const rect = canvas.getBoundingClientRect();
+    if (e.clientY < rect.top || e.clientY > rect.bottom) return;
+    movePaddleTo(canvasToGameX(e.clientX));
+  }, { passive:true });
+
+  // 觸控
+  window.addEventListener("touchstart", (e) => {
+    if (!e.touches?.length) return;
+    movePaddleTo(canvasToGameX(e.touches[0].clientX));
+  }, { passive:true });
+
+  window.addEventListener("touchmove", (e) => {
+    if (!e.touches?.length) return;
+    movePaddleTo(canvasToGameX(e.touches[0].clientX));
+  }, { passive:true });
+
+  // Buttons
+  startBtn.addEventListener("click", handleStartOrLaunch);
+  pauseBtn.addEventListener("click", togglePause);
+  restartBtn.addEventListener("click", resetGame);
+
+  function handleStartOrLaunch(){
+    if (state === GameState.LOSE) return;
+    if (state === GameState.WIN){
+      nextLevel();
+      return;
+    }
+    if (state === GameState.PAUSED){
+      setState(GameState.RUNNING);
+      return;
+    }
+    if (state === GameState.READY){
+      // 發球
+      ball.stuck = false;
+      setState(GameState.RUNNING);
+      msgEl.classList.remove("show");
+      return;
+    }
+    // RUNNING 時按 Space：不做事（你也可以改成“加速”）
+  }
+
+  function togglePause(){
+    if (state === GameState.RUNNING){
+      setState(GameState.PAUSED);
+    } else if (state === GameState.PAUSED){
+      setState(GameState.RUNNING);
+      msgEl.classList.remove("show");
+    }
+  }
+
+  // ===== 遊戲循環 =====
+  let last = performance.now();
+
+  function step(now){
+    const dt = Math.min(0.033, (now - last) / 1000); // 避免切換分頁造成大 dt
+    last = now;
+
+    update(dt);
+    draw();
+
+    requestAnimationFrame(step);
+  }
+
+  function update(dt){
+    // paddle 由鍵盤控制（滑鼠/觸控則直接定位，不依賴 vx）
+    paddle.vx = 0;
+    if (keys.left) paddle.vx -= paddle.speed;
+    if (keys.right) paddle.vx += paddle.speed;
+    paddle.x = clamp(paddle.x + paddle.vx * dt, 12, W - paddle.w - 12);
+
+    // READY 狀態球黏在球拍上
+    if (ball.stuck){
+      ball.x = paddle.x + paddle.w/2;
+      ball.y = paddle.y - ball.r - 2;
+      return;
+    }
+
+    if (state !== GameState.RUNNING) return;
+
+    // 移動球
+    const mul = ball.speedMul;
+    ball.x += ball.vx * dt * mul;
+    ball.y += ball.vy * dt * mul;
+
+    // 牆反彈
+    if (ball.x - ball.r < 0){ ball.x = ball.r; ball.vx *= -1; }
+    if (ball.x + ball.r > W){ ball.x = W - ball.r; ball.vx *= -1; }
+    if (ball.y - ball.r < 0){ ball.y = ball.r; ball.vy *= -1; }
+
+    // 掉落底部
+    if (ball.y - ball.r > H){
+      lives--;
+      updateHUD();
+      if (lives <= 0){
+        setState(GameState.LOSE);
+        return;
+      }
+      resetBallAndPaddle();
+      setState(GameState.READY);
+      return;
+    }
+
+    // 球拍碰撞
+    if (circleRectCollision(ball.x, ball.y, ball.r, paddle.x, paddle.y, paddle.w, paddle.h) && ball.vy > 0){
+      ball.y = paddle.y - ball.r - 0.5;
+      reflectBallOffPaddle();
+    }
+
+    // 磚塊碰撞（簡單處理：碰到就消失並反轉 y 或 x）
+    for (const b of bricks){
+      if (!b.alive) continue;
+      if (circleRectCollision(ball.x, ball.y, ball.r, b.x, b.y, b.w, b.h)){
+        b.hp--;
+        if (b.hp <= 0) b.alive = false;
+
+        score += 10;
+        updateHUD();
+
+        // 判斷碰撞方向：用前一幀位置估計
+        // 以球心速度方向做簡化反射
+        const overlapLeft = (ball.x + ball.r) - b.x;
+        const overlapRight = (b.x + b.w) - (ball.x - ball.r);
+        const overlapTop = (ball.y + ball.r) - b.y;
+        const overlapBottom = (b.y + b.h) - (ball.y - ball.r);
+        const minX = Math.min(overlapLeft, overlapRight);
+        const minY = Math.min(overlapTop, overlapBottom);
+
+        if (minX < minY) ball.vx *= -1;
+        else ball.vy *= -1;
+
+        break; // 一次只處理一塊，避免連鎖穿透
+      }
+    }
+
+    // 過關
+    if (allBricksCleared()){
+      setState(GameState.WIN);
+      ball.stuck = true;
+      return;
+    }
+  }
+
+  // ===== 繪圖 =====
+  function draw(){
+    // 背景清除
+    ctx.clearRect(0, 0, W, H);
+
+    // 星點 / 裝飾
+    drawStars();
+
+    // 磚塊
+    for (const b of bricks){
+      if (!b.alive) continue;
+      drawBrick(b);
+    }
+
+    // 球拍
+    drawPaddle();
+
+    // 球
+    drawBall();
+
+    // 上方 HUD（Canvas 上也畫一份）
+    drawTopHUD();
+  }
+
+  function drawStars(){
+    // 簡單粒子背景：固定 seed 風格
+    ctx.save();
+    ctx.globalAlpha = 0.25;
+    for (let i=0;i<55;i++){
+      const x = (i*173) % W;
+      const y = (i*97) % H;
+      const r = (i%3)+1;
+      ctx.fillStyle = i%2 ? "#6ee7ff" : "#ffffff";
+      ctx.beginPath();
+      ctx.arc(x, y, r*0.6, 0, Math.PI*2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawBrick(b){
+    ctx.save();
+    // 陰影
+    ctx.fillStyle = "rgba(0,0,0,.25)";
+    roundRect(ctx, b.x+2, b.y+3, b.w, b.h, 8);
+    ctx.fill();
+
+    // 主體
+    const grad = ctx.createLinearGradient(b.x, b.y, b.x, b.y + b.h);
+    grad.addColorStop(0, hexToRgba(b.color, 0.95));
+    grad.addColorStop(1, hexToRgba("#000000", 0.25));
+    ctx.fillStyle = grad;
+    roundRect(ctx, b.x, b.y, b.w, b.h, 8);
+    ctx.fill();
+
+    // 高光
+    ctx.strokeStyle = "rgba(255,255,255,.18)";
+    ctx.lineWidth = 1;
+    roundRect(ctx, b.x+1, b.y+1, b.w-2, b.h-2, 7);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawPaddle(){
+    ctx.save();
+    const x = paddle.x, y = paddle.y;
+    // 陰影
+    ctx.fillStyle = "rgba(0,0,0,.35)";
+    roundRect(ctx, x+3, y+4, paddle.w, paddle.h, 10);
+    ctx.fill();
+
+    // 主體
+    const grad = ctx.createLinearGradient(x, y, x+paddle.w, y);
+    grad.addColorStop(0, "rgba(110,231,255,.65)");
+    grad.addColorStop(0.5, "rgba(72,255,149,.75)");
+    grad.addColorStop(1, "rgba(167,139,250,.65)");
+    ctx.fillStyle = grad;
+    roundRect(ctx, x, y, paddle.w, paddle.h, 10);
+    ctx.fill();
+
+    // 高光
+    ctx.strokeStyle = "rgba(255,255,255,.22)";
+    ctx.lineWidth = 1;
+    roundRect(ctx, x+1, y+1, paddle.w-2, paddle.h-2, 9);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawBall(){
+    ctx.save();
+    // 陰影
+    ctx.fillStyle = "rgba(0,0,0,.35)";
+    ctx.beginPath();
+    ctx.arc(ball.x+2, ball.y+3, ball.r, 0, Math.PI*2);
+    ctx.fill();
+
+    // 球體
+    const grad = ctx.createRadialGradient(ball.x-3, ball.y-4, 2, ball.x, ball.y, ball.r+6);
+    grad.addColorStop(0, "rgba(255,255,255,1)");
+    grad.addColorStop(0.35, "rgba(110,231,255,.95)");
+    grad.addColorStop(1, "rgba(30,136,229,.65)");
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  function drawTopHUD(){
+    ctx.save();
+    ctx.fillStyle = "rgba(0,0,0,.30)";
+    ctx.fillRect(0, 0, W, 44);
+
+    ctx.fillStyle = "rgba(234,240,255,.90)";
+    ctx.font = "700 14px system-ui, -apple-system, Segoe UI, Roboto, Noto Sans TC, sans-serif";
+    ctx.fillText(`分數: ${score}`, 16, 28);
+    ctx.fillText(`生命: ${lives}`, 130, 28);
+    ctx.fillText(`關卡: ${level}`, 240, 28);
+
+    const tip = (state === GameState.READY) ? "Space 發球" :
+                (state === GameState.RUNNING) ? "P 暫停" :
+                (state === GameState.PAUSED) ? "P 繼續" :
+                (state === GameState.WIN) ? "Space 下一關" :
+                "R 重來";
+    ctx.fillStyle = "rgba(110,231,255,.95)";
+    ctx.fillText(tip, W - 120, 28);
+    ctx.restore();
+  }
+
+  // ===== 小工具：圓角矩形 / 色彩 =====
+  function roundRect(ctx, x, y, w, h, r){
+    const rr = Math.min(r, w/2, h/2);
+    ctx.beginPath();
+    ctx.moveTo(x+rr, y);
+    ctx.arcTo(x+w, y, x+w, y+h, rr);
+    ctx.arcTo(x+w, y+h, x, y+h, rr);
+    ctx.arcTo(x, y+h, x, y, rr);
+    ctx.arcTo(x, y, x+w, y, rr);
+    ctx.closePath();
+  }
+  function hexToRgba(hex, a=1){
+    const h = hex.replace("#","");
+    const bigint = parseInt(h.length===3 ? h.split("").map(x=>x+x).join("") : h, 16);
+    const r = (bigint >> 16) & 255;
+    const g = (bigint >> 8) & 255;
+    const b = bigint & 255;
+    return `rgba(${r},${g},${b},${a})`;
+  }
+
+  // ===== Resize / Init =====
+  function onResize(){
+    // 讓 canvas CSS 自適應容器，但繪圖座標仍以 960x600
+    // 這裡只需要確保 dpr transform 正確（不依賴 rect 大小）
+    setupHiDPI();
+  }
+  window.addEventListener("resize", onResize);
+
+  // init
+  onResize();
+  resetGame();
+  requestAnimationFrame(step);
+})();
+</script>
+</body>
+</html>
